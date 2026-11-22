@@ -1,0 +1,313 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentType {
+  DNI
+  CEDULA
+  OTRO
+}
+
+enum MemberStatus {
+  ACTIVO
+  INACTIVO
+}
+
+enum StaffRole {
+  ADMIN
+  RECEPCION
+}
+
+enum PlanValidityType {
+  DIARIO
+  SEMANAL
+  MENSUAL
+}
+
+enum AccessPolicy {
+  ILIMITADO
+  PASES_TOTALES
+  FRECUENCIA_SEMANAL
+}
+
+enum SubscriptionStatus {
+  PENDIENTE_PAGO
+  ACTIVA
+  VENCIDA
+  SUSPENDIDA
+  CANCELADA
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  TRANSFERENCIA
+}
+
+enum PaymentStatus {
+  PENDIENTE
+  CONFIRMADO
+  RECHAZADO
+  ANULADO
+}
+
+enum AccessResult {
+  PERMITIDO
+  DENEGADO
+}
+
+enum CashMovementType {
+  INGRESO
+  EGRESO
+}
+
+enum CashMethod {
+  EFECTIVO
+  TRANSFERENCIA
+  OTRO
+}
+
+enum CashSessionStatus {
+  ABIERTA
+  CERRADA
+}
+
+model Gym {
+  id            String         @id @default(cuid())
+  nombre        String
+  estado        String         @default("ACTIVO")
+  config        Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  users         User[]
+  members       Member[]
+  plans         Plan[]
+  subscriptions Subscription[]
+  payments      Payment[]
+  accessEvents  AccessEvent[]
+  cashMovements CashMovement[]
+  cashSessions  CashSession[]
+  auditLogs     AuditLog[]
+
+  @@map("gyms")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  gymId        String
+  nombre       String
+  email        String    @unique
+  passwordHash String
+  rol          StaffRole
+  activo       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  gym                Gym            @relation(fields: [gymId], references: [id], onDelete: Restrict)
+  subscriptionsCreated Subscription[] @relation("SubscriptionCreatedBy")
+  paymentsRegistered  Payment[]      @relation("PaymentRegisteredBy")
+  paymentsConfirmed   Payment[]      @relation("PaymentConfirmedBy")
+  cashMovements       CashMovement[] @relation("CashMovementRegisteredBy")
+  cashSessionsOpened  CashSession[]  @relation("CashSessionOpenedBy")
+  cashSessionsClosed  CashSession[]  @relation("CashSessionClosedBy")
+  auditLogs          AuditLog[]
+
+  @@index([gymId])
+  @@map("users")
+}
+
+model Member {
+  id              String       @id @default(cuid())
+  gymId           String
+  nombre          String
+  apellido        String
+  documentoTipo   DocumentType @default(DNI)
+  documentoNumero String
+  telefono        String?
+  email           String?
+  fechaNacimiento DateTime?
+  estado          MemberStatus @default(ACTIVO)
+  notas           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  gym           Gym            @relation(fields: [gymId], references: [id], onDelete: Restrict)
+  subscriptions Subscription[]
+  payments      Payment[]
+  accessEvents  AccessEvent[]
+
+  @@unique([gymId, documentoNumero])
+  @@index([gymId, apellido, nombre])
+  @@map("members")
+}
+
+model Plan {
+  id                    String           @id @default(cuid())
+  gymId                 String
+  nombre                String
+  descripcion           String?
+  tipoVigencia          PlanValidityType
+  duracionDias          Int
+  precio                Decimal          @db.Decimal(12, 2)
+  politicaAcceso        AccessPolicy
+  pasesTotales          Int?
+  frecuenciaSemanalMax  Int?
+  esPromo               Boolean          @default(false)
+  promoInicio           DateTime?
+  promoFin              DateTime?
+  activo                Boolean          @default(true)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  gym           Gym            @relation(fields: [gymId], references: [id], onDelete: Restrict)
+  subscriptions Subscription[]
+
+  @@index([gymId, activo])
+  @@map("plans")
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  gymId          String
+  memberId       String
+  planId         String
+  planSnapshot   Json
+  fechaInicio    DateTime
+  fechaFin       DateTime
+  estado         SubscriptionStatus @default(PENDIENTE_PAGO)
+  pasesRestantes Int?
+  creadaPorId    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  gym          Gym          @relation(fields: [gymId], references: [id], onDelete: Restrict)
+  member       Member       @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  plan         Plan         @relation(fields: [planId], references: [id], onDelete: Restrict)
+  creadaPor    User?        @relation("SubscriptionCreatedBy", fields: [creadaPorId], references: [id], onDelete: SetNull)
+  payments     Payment[]
+  accessEvents AccessEvent[]
+
+  @@index([gymId, memberId, estado])
+  @@index([gymId, fechaFin])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  gymId             String
+  memberId          String
+  subscriptionId    String?
+  monto             Decimal       @db.Decimal(12, 2)
+  metodo            PaymentMethod
+  estado            PaymentStatus @default(PENDIENTE)
+  referencia        String?
+  fechaPago         DateTime      @default(now())
+  fechaConfirmacion DateTime?
+  registradoPorId   String?
+  confirmadoPorId   String?
+  notas             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  gym           Gym            @relation(fields: [gymId], references: [id], onDelete: Restrict)
+  member        Member         @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  subscription  Subscription?  @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  registradoPor User?          @relation("PaymentRegisteredBy", fields: [registradoPorId], references: [id], onDelete: SetNull)
+  confirmadoPor User?          @relation("PaymentConfirmedBy", fields: [confirmadoPorId], references: [id], onDelete: SetNull)
+  cashMovement  CashMovement?
+
+  @@index([gymId, estado, fechaPago])
+  @@index([gymId, memberId])
+  @@map("payments")
+}
+
+model AccessEvent {
+  id                  String       @id @default(cuid())
+  gymId               String
+  memberId            String?
+  subscriptionId      String?
+  documentoIngresado  String
+  resultado           AccessResult
+  motivo              String
+  fechaHora           DateTime     @default(now())
+  puntoAcceso         String       @default("principal")
+  createdAt           DateTime     @default(now())
+
+  gym          Gym           @relation(fields: [gymId], references: [id], onDelete: Restrict)
+  member       Member?       @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([gymId, fechaHora])
+  @@index([gymId, memberId, fechaHora])
+  @@index([gymId, subscriptionId, fechaHora])
+  @@map("access_events")
+}
+
+model CashMovement {
+  id             String           @id @default(cuid())
+  gymId          String
+  tipo           CashMovementType
+  categoria      String
+  monto          Decimal          @db.Decimal(12, 2)
+  metodo         CashMethod
+  paymentId      String?          @unique
+  fecha          DateTime         @default(now())
+  descripcion    String?
+  registradoPorId String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  gym           Gym      @relation(fields: [gymId], references: [id], onDelete: Restrict)
+  payment       Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  registradoPor User?    @relation("CashMovementRegisteredBy", fields: [registradoPorId], references: [id], onDelete: SetNull)
+
+  @@index([gymId, fecha, tipo])
+  @@map("cash_movements")
+}
+
+model CashSession {
+  id               String            @id @default(cuid())
+  gymId            String
+  estado           CashSessionStatus @default(ABIERTA)
+  aperturaMonto    Decimal           @db.Decimal(12, 2)
+  aperturaFecha    DateTime          @default(now())
+  aperturaPorId    String?
+  cierreFecha      DateTime?
+  cierrePorId      String?
+  esperadoEfectivo Decimal?          @db.Decimal(12, 2)
+  contadoEfectivo  Decimal?          @db.Decimal(12, 2)
+  diferencia       Decimal?          @db.Decimal(12, 2)
+  observaciones    String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  gym         Gym   @relation(fields: [gymId], references: [id], onDelete: Restrict)
+  aperturaPor User? @relation("CashSessionOpenedBy", fields: [aperturaPorId], references: [id], onDelete: SetNull)
+  cierrePor   User? @relation("CashSessionClosedBy", fields: [cierrePorId], references: [id], onDelete: SetNull)
+
+  @@index([gymId, estado, aperturaFecha])
+  @@map("cash_sessions")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  gymId      String
+  userId     String?
+  accion     String
+  entidad    String
+  entidadId  String?
+  detalle    Json?
+  createdAt  DateTime @default(now())
+
+  gym  Gym   @relation(fields: [gymId], references: [id], onDelete: Restrict)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([gymId, createdAt])
+  @@index([gymId, entidad, entidadId])
+  @@map("audit_logs")
+}

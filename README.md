@@ -1,36 +1,111 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GymSoft
 
-## Getting Started
+Sistema de gestión para gimnasio (operación local, Iteración 0 implementada como base técnica).
 
-First, run the development server:
+Incluye base para: socios, planes/promos, suscripciones, pagos (efectivo/transferencia), control de acceso por DNI con torniquete propio (integración futura) y caja/ingresos-egresos, con modelo **multi-gimnasio** (`gym_id`) desde el inicio.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack
+- **Web:** Next.js 14 (App Router) + TypeScript + Tailwind CSS
+- **BD:** PostgreSQL 16 (Docker)
+- **ORM:** Prisma 6 + migraciones
+- **Auth:** NextAuth (Credentials, JWT) con roles `ADMIN` / `RECEPCION`
+- **Entorno local:** Docker Compose, configuración por `.env`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Estado actual
+### Iteración 0 (base)
+- [x] Proyecto Next.js + TS + Tailwind y configuración por entorno
+- [x] Docker Compose con PostgreSQL local (`POSTGRES_PORT` configurable; por defecto 5434)
+- [x] Esquema Prisma multi-gimnasio y migración inicial
+- [x] Seed con gimnasio y usuarios staff por defecto
+- [x] Login y protección de rutas por rol
+- [x] Documentación de reglas/hardware y scripts backup/restore
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Iteración 1 (MVP operativo software)
+- [x] Socios, planes/promos, suscripciones con snapshot, pagos efectivo/transferencia, check-in software con `evaluateAccess` y `AccessEvent`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Iteración 2 (torniquete/kiosco - base software)
+- [x] API de check-in: `POST /api/access/checkin` (DNI/gym/puntoAcceso) → decisión + actuación.
+- [x] Adaptador torniquete: `src/lib/domain/turnstile.ts` con modo `SIMULATED` o `RELAY_HTTP` configurable en `Gym.config.turnstile`.
+- [x] Kiosco dedicado: `/kiosco` (UI fullscreen, DNI, resultado permitido/denegado, dispara apertura en permitido).
 
-## Learn More
+### Iteración 3 (caja y contabilidad operativa)
+- [x] Caja: movimientos ingreso/egreso manuales, categorías, filtros por período. ` /caja`.
+- [x] Arqueos efectivo: apertura/cierre, esperado vs contado, diferencia. `/caja/arqueos`.
+- [x] Reportes: ingresos/egresos/balance, por categoría, pendientes de transferencias, asistencias/denegados, export CSV. `/reportes`, `/reportes/export`.
 
-To learn more about Next.js, take a look at the following resources:
+> Pendientes: integración física real de relé/controlador en sitio (ajustar `Gym.config.turnstile`), endurecimiento/auditoría/migración multi-gym (Iteración 4). Build validado con `NODE_OPTIONS=--max-old-space-size=4096`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Requisitos
+- Node.js 20+ y npm
+- Docker Desktop / Docker Engine + Docker Compose
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Configuración rápida
 
-## Deploy on Vercel
+1. Copiar variables de entorno (si no existe `.env`):
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+   Ajustar `DATABASE_URL` / `POSTGRES_PORT` si los puertos por defecto están ocupados y definir un `NEXTAUTH_SECRET` seguro.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. Levantar PostgreSQL:
+   ```powershell
+   npm run db:up
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+3. Instalar dependencias (si hace falta):
+   ```powershell
+   npm install
+   ```
+
+4. Generar cliente Prisma y aplicar migraciones:
+   ```powershell
+   npm run prisma:generate
+   npm run prisma:deploy
+   ```
+   Para desarrollo con historial interactivo: `npm run prisma:migrate`.
+
+5. Cargar datos iniciales (gym + usuarios):
+   ```powershell
+   npm run db:seed
+   ```
+
+6. Iniciar la app:
+   ```powershell
+   npm run dev
+   ```
+   Abrir http://localhost:3000
+
+## Credenciales seed (por defecto)
+- **Admin:** `admin@gym.local` / `Admin12345!` (rol `ADMIN`, acceso a `/admin`)
+- **Recepción:** `recepcion@gym.local` / `Recepcion12345!` (rol `RECEPCION`)
+
+> Cambiar contraseñas y `NEXTAUTH_SECRET` antes de cualquier uso real.
+
+## Scripts útiles
+- `npm run dev` / `build` / `start` — app Next.js
+- `npm run lint` — ESLint
+- `npm run db:up` / `db:down` / `db:reset` — contenedor PostgreSQL
+- `npm run prisma:generate` / `prisma:migrate` / `prisma:deploy` / `prisma:studio`
+- `npm run db:seed` — seed (`node prisma/seed.js`)
+- `npm run backup:db` — genera `backups/gymsoft-YYYYMMDD-HHmmss.dump`
+- `npm run restore:db` — restaura dump (ver parámetros en script y `docs/iteracion-0/backup-restore.md`)
+
+## Backup y restore (resumen)
+- Backup (requiere contenedor `gymsoft-db` en ejecución):
+  ```powershell
+  ./scripts/backup-db.ps1
+  ```
+- Restore de prueba a BD temporal:
+  ```powershell
+  ./scripts/restore-db.ps1 -DumpFile .\backups\<archivo>.dump -TargetDb gymsoft_restore_test
+  ```
+  Detalle y recomendaciones en `docs/iteracion-0/backup-restore.md`.
+
+## Documentación
+- Plan maestro: `C:\Users\danyr\.opencode\plan\gym-system-plan.md` (referencia de planificación)
+- Iteración 0: `docs/iteracion-0/reglas-negocio.md`, `docs/iteracion-0/hardware-torniquete.md`, `docs/iteracion-0/backup-restore.md`
+- Arquitectura/API/runbook/glosario: `docs/architecture.md`, `docs/api-reference.md`, `docs/runbook.md`, `docs/glossary.md`
+
+## Notas
+- Puerto PostgreSQL por defecto del proyecto en `.env.example`: `5434` (para evitar conflicto con instancias locales en 5432/5433). Ajustar según el equipo.
+- El esquema incluye entidades núcleo para iteraciones futuras; la UI/logic operativa completa se implementa en Iteraciones 1+.
