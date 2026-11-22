@@ -1,7 +1,7 @@
 # Runbook — Operación y troubleshooting (GymSoft)
 
 ## Arranque local
-1. Verificar `.env` (especialmente `DATABASE_URL`, `POSTGRES_PORT`, `NEXTAUTH_SECRET`).
+1. Verificar `.env` (`DATABASE_URL`, `DIRECT_URL`, `POSTGRES_PORT`, `NEXTAUTH_SECRET`).
 2. Levantar BD: `npm run db:up` (contenedor `gymsoft-db`).
 3. Migraciones/cliente: `npm run prisma:generate` y `npm run prisma:deploy` (o `prisma:migrate` en dev).
 4. Seed inicial (primera vez): `npm run db:seed`.

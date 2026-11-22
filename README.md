@@ -45,7 +45,7 @@ Incluye base para: socios, planes/promos, suscripciones, pagos (efectivo/transfe
    ```powershell
    Copy-Item .env.example .env
    ```
-   Ajustar `DATABASE_URL` / `POSTGRES_PORT` si los puertos por defecto están ocupados y definir un `NEXTAUTH_SECRET` seguro.
+   Ajustar `DATABASE_URL`/`DIRECT_URL`/`POSTGRES_PORT` si los puertos por defecto están ocupados y definir un `NEXTAUTH_SECRET` seguro. En local Docker, `DATABASE_URL` y `DIRECT_URL` pueden ser iguales. En Neon/Vercel, usar pooled en `DATABASE_URL` y direct en `DIRECT_URL`.
 
 2. Levantar PostgreSQL:
    ```powershell
