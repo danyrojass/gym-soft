@@ -17,14 +17,14 @@ export function PageShell({ title, description, action, children }: { title: str
 }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>{children}</section>;
+  return <section className={`rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm backdrop-blur-sm ${className}`}>{children}</section>;
 }
 
 export function ButtonLink({ href, children, variant = "primary" }: { href: string; children: ReactNode; variant?: "primary" | "secondary" }) {
   const cls = variant === "primary"
-    ? "bg-slate-900 text-white hover:bg-slate-800"
-    : "border border-slate-300 text-slate-700 hover:bg-slate-50";
-  return <Link href={href} className={`inline-flex rounded-md px-4 py-2 text-sm font-medium ${cls}`}>{children}</Link>;
+    ? "bg-slate-900 text-white hover:bg-slate-800 shadow-sm"
+    : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
+  return <Link href={href} className={`inline-flex rounded-lg px-4 py-2 text-sm font-medium transition ${cls}`}>{children}</Link>;
 }
 
 export function Badge({ children, tone = "slate" }: { children: ReactNode; tone?: "slate" | "green" | "red" | "amber" | "blue" }) {

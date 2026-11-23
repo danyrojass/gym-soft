@@ -5,6 +5,11 @@ import { Providers } from "@/components/providers";
 export const metadata: Metadata = {
   title: "GymSoft - Gestión de gimnasio",
   description: "Panel de administración para gestión de gimnasio, socios, planes, pagos y acceso.",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
